@@ -67,12 +67,26 @@ func writeJobs(jobs []extractedJob) {
 	wErr := w.Write(headers)
 	checkErr(wErr)
 
+	// c := make(chan error)
+
 	for _, job := range(jobs) {
 		jobSlice := []string{"kr.indeed.com/viewjob?jk="+job.id, job.title, job.location, job.salary, job.summary}
 		jwErr := w.Write(jobSlice)
 		checkErr(jwErr)
+		// go writeJob(w, job, c)
 	}
+
+	// for i := 0; i < len(jobs); i++ {
+	// 	jwErr := <- c
+	// 	checkErr(jwErr)
+	// }
 }
+
+// func writeJob(w *csv.Writer, job extractedJob, channel chan<- error) {
+// 	jobSlice := []string{"kr.indeed.com/viewjob?jk="+job.id, job.title, job.location, job.salary, job.summary}
+// 	jwErr := w.Write(jobSlice)
+// 	channel <- jwErr
+// }
 
 func cleanString(str string) string {
 	return strings.Join(strings.Fields(strings.TrimSpace(str)), " ") 
