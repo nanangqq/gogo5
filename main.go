@@ -29,16 +29,29 @@ func main() {
 	totalPages := getPages()
 	// fmt.Println(totalPages)
 
-	// c := make(chan []extractedJob)
+	c := make(chan []extractedJob)
 	
 	for i := 0; i < totalPages; i++ {
-		extractedJobs := getPage(i)
-		jobs = append(jobs, extractedJobs...)
+		// extractedJobs := getPage(i)
+		go getPage(i, c)
+	}
+
+	for i := 0; i < totalPages; i++ {
+		extractedJobs := <-c
+		// jobs = append(jobs, extractedJobs...)
+		appendJobs(&jobs, extractedJobs)
+
 	}
 
 	// fmt.Println(len(jobs))
 	writeJobs(jobs)
 	fmt.Println("done extracting", len(jobs), "jobs")
+}
+
+func appendJobs(jobs *[]extractedJob, extractedJobs []extractedJob) {
+	// fmt.Println(jobs)
+	// fmt.Println(*jobs)
+	*jobs = append(*jobs, extractedJobs...)
 }
 
 func writeJobs(jobs []extractedJob) {
@@ -63,7 +76,7 @@ func cleanString(str string) string {
 	return strings.Join(strings.Fields(strings.TrimSpace(str)), " ") 
 }
 
-func getPage(page int) []extractedJob {
+func getPage(page int, channel chan []extractedJob) {
 	var jobs []extractedJob
 	pageURL := baseURL + "&start=" + strconv.Itoa(page*50)
 	fmt.Println("requesting", pageURL)
@@ -83,7 +96,8 @@ func getPage(page int) []extractedJob {
 		jobs = append(jobs, job)
 	})
 
-	return jobs
+	// return jobs
+	channel <- jobs
 }
 
 func extractJob(card *goquery.Selection) extractedJob {
