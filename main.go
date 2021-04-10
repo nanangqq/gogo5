@@ -8,6 +8,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/PuerkitoBio/goquery"
 )
@@ -25,6 +26,7 @@ type extractedJob struct {
 var baseURL string = "https://kr.indeed.com/jobs?q=python&limit=50"
 
 func main() {
+	start := time.Now()
 	var jobs []extractedJob
 	totalPages := getPages()
 	// fmt.Println(totalPages)
@@ -45,7 +47,7 @@ func main() {
 
 	// fmt.Println(len(jobs))
 	writeJobs(jobs)
-	fmt.Println("done extracting", len(jobs), "jobs")
+	fmt.Println("done extracting", len(jobs), "jobs in", time.Since(start))
 }
 
 func appendJobs(jobs *[]extractedJob, extractedJobs []extractedJob) {
@@ -76,8 +78,10 @@ func cleanString(str string) string {
 	return strings.Join(strings.Fields(strings.TrimSpace(str)), " ") 
 }
 
-func getPage(page int, channel chan []extractedJob) {
+func getPage(page int, channel chan<- []extractedJob) {
 	var jobs []extractedJob
+	c := make(chan extractedJob)
+	
 	pageURL := baseURL + "&start=" + strconv.Itoa(page*50)
 	fmt.Println("requesting", pageURL)
 
@@ -92,15 +96,21 @@ func getPage(page int, channel chan []extractedJob) {
 
 	searchCards := doc.Find(".jobsearch-SerpJobCard")
 	searchCards.Each(func(i int, card *goquery.Selection) {
-		job := extractJob(card)
-		jobs = append(jobs, job)
+		// job := extractJob(card)
+		go extractJob(card, c)
+		// jobs = append(jobs, job)
 	})
+
+	for i := 0; i < searchCards.Length(); i++ {
+		job := <- c 
+		jobs = append(jobs, job)
+	}
 
 	// return jobs
 	channel <- jobs
 }
 
-func extractJob(card *goquery.Selection) extractedJob {
+func extractJob(card *goquery.Selection, channel chan<- extractedJob) {
 	id, _ := card.Attr("data-jk")
 	title := cleanString(card.Find(".title>a").Text())
 	location := cleanString(card.Find(".sjcl").Text())
@@ -108,14 +118,20 @@ func extractJob(card *goquery.Selection) extractedJob {
 	salary := cleanString(card.Find(".salaryText").Text())
 	summary := cleanString(card.Find(".summary").Text())
 
-	return extractedJob{
+	// return extractedJob{
+	// 	id: id,
+	// 	title: title,
+	// 	location: location,
+	// 	salary: salary,
+	// 	summary: summary,
+	// }
+	channel <- extractedJob{
 		id: id,
 		title: title,
 		location: location,
 		salary: salary,
 		summary: summary,
 	}
-
 }
 
 func checkErr(err error) {
